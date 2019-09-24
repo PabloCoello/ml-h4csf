@@ -44,9 +44,9 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
     }
   }
   sigmaesq = 1
-  coefficients = mget(ls(pattern="gamma"))
-  coefficients = c(coefficients, mget(ls(pattern="beta")))
-  coefficients = c(coefficients, sigmaesq)
+  coefficients = c(mget(ls(pattern="gamma")), 
+                   mget(ls(pattern="beta")), 
+                   mget(ls(pattern="sigmaesq")))
   
   index = unique(data[,"port"])
   time = unique(data[,"time"])
@@ -63,6 +63,13 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
       aux = aux[-1,]
       p = p+aux
       return(p)
+    }
+    get_beta_array = function(coefficients, X){
+      beta = array(dim = length(X))
+      for (i in 1:length(X)){
+        beta[i] = coefficients[[i]]
+      }
+      return(beta)
     }
     
     P = get_p_matrix(t)
