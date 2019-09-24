@@ -12,9 +12,32 @@ rm(list=ls())
 data <- read_excel("Puertos_data.xlsx")
 data <- pdata.frame(data,  index = "port")
 
+yName = "total_traffic"
+xNames = c("total_meters", "tugs")
+zNames = c("averagehs", "systems_hs")
+zIntercept = TRUE
+it = c("port", "time")
 
-log_likelihood = function(beta1, sigmaesq, gamma0, gamma1){
-  t=length(Y)
+
+
+get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
+  Y = log(data[,yName])
+  X = data[,xNames]
+  Z = data[,zNames]
+  
+  beta = array(dim = length(X))
+  if (zIntercept){
+    gamma = array(dim = length(Z)+1)
+  }else{
+    gamma = array(dim = length(Z))
+  }
+  index = unique(data[,"port"])
+  time = unique(data[,"time"])
+}
+
+
+log_likelihood = function(beta, gamma, sigmaesq){
+  t=length(time)
   get_p_matrix = function(t){
     p = -diag(t)
     p = p[-nrow(p),]
