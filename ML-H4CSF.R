@@ -21,8 +21,28 @@ it = c("port", "time")
 
 
 data(usmanuf)
+usmanuf = usmanuf[usmanuf$naics!="311330",]
+usmanuf = usmanuf[usmanuf$naics!="311511",]
+usmanuf = usmanuf[usmanuf$naics!="311513",]
+usmanuf = usmanuf[usmanuf$naics!="311611",]
+usmanuf = usmanuf[usmanuf$naics!="311612",]
+usmanuf = usmanuf[usmanuf$naics!="311615",]
+usmanuf = usmanuf[usmanuf$naics!="311811",]
+usmanuf = usmanuf[usmanuf$naics!="312111",]
+usmanuf = usmanuf[usmanuf$naics!="313311",]
+usmanuf = usmanuf[usmanuf$naics!="314121",]
+usmanuf = usmanuf[usmanuf$naics!="315999",]
+usmanuf = usmanuf[usmanuf$naics!="321113",]
+usmanuf = usmanuf[usmanuf$naics!="322121",]
+
+na = (as.character(unique(usmanuf[which(is.na(usmanuf$Y)),"naics"])))
+for (n in na){
+  usmanuf = usmanuf[usmanuf$naics!=n,]
+}
+
+
 usmanuf <- pdata.frame(usmanuf,  index = "naics")
-get_ml_estimation(yName = "Y",
+res = get_ml_estimation(yName = "Y",
                   xNames = c("K", "L"),
                   zNames = c("M"),
                   zIntercept = TRUE,
@@ -35,10 +55,11 @@ zIntercept = TRUE
 it = c("naics", "time")
 data = usmanuf
 
+
 get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
-  Y_ = log(data[,yName])
-  X_ = data[,xNames]
-  Z_ = data[,zNames]
+  Y_ = data.frame(log(data[,yName]))
+  X_ = data.frame(log(data[,xNames]))
+  Z_ = data.frame(log(data[,zNames]))
   
   nb = length(X_)
   ng = length(Z_)
@@ -47,11 +68,11 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
     assign(paste("beta",i,sep=""), 1)
   }
   if (zIntercept){
-    Z_ = cbind.data.frame(replicate(nrow(Z_),0) ,Z_)
+    Z_ = cbind.data.frame(replicate(nrow(Z_),1) ,Z_)
     ng = ng + 1
   }
   for (i in 1:ng){
-     assign(paste("gamma", i, sep=""), 1)
+     assign(paste("gamma", i, sep=""), 0.001)
   }
   
   sigmaesq = 1
@@ -59,11 +80,11 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
                    mget(ls(pattern="gamma")), 
                    mget(ls(pattern="sigmaesq")))
   
-  index = unique(data[,"port"])
+  index = unique(data[,"naics"])
   time = unique(data[,"time"])
-  dataY= cbind.data.frame(Y_, data$port, data$time)
-  dataX= cbind.data.frame(X_, data$port, data$time)
-  dataZ= cbind.data.frame(Z_, data$port, data$time)
+  dataY= cbind.data.frame(Y_, data[,it[1]], data$time)
+  dataX= cbind.data.frame(X_, data[,it[1]], data$time)
+  dataZ= cbind.data.frame(Z_, data[,it[1]], data$time)
   
   log_likelihood = function(beta1, beta2, gamma1, gamma2, sigmaesq){
     t=length(time)
@@ -100,17 +121,16 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
     result = array(dim = length(index))
     count = 0
     for (i in index){
-      print(i)
-      Y = as.matrix(dataY[which(dataY$`data$port`==i),1])
-      X = as.matrix(dataX[which(dataX$`data$port`==i),1:nb])
-      Z = as.matrix(dataZ[which(dataZ$`data$port`==i),1:ng])
+      Y = as.matrix(dataY[which(dataY$`data[, it[1]]`==i),1])
+      X = as.matrix(dataX[which(dataX$`data[, it[1]]`==i),1:nb])
+      Z = as.matrix(dataZ[which(dataZ$`data[, it[1]]`==i),1:ng])
       y = P%*%Y
       x = P%*%X
       R = y - x%*%beta_array
       
       var_array = array(dim=t)
-      for (i in 1:t){
-        var_array[i]=exp(gamma_array%*%Z[i,])
+      for (j in 1:t){
+        var_array[j]=exp(gamma_array%*%Z[j,])
       }
       
       
