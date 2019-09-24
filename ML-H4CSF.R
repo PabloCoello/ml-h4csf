@@ -25,55 +25,58 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
   X = data[,xNames]
   Z = data[,zNames]
   
-  beta = array(dim = length(X))
+  beta = replicate(length(X), 1)
   if (zIntercept){
-    gamma = array(dim = length(Z)+1)
+    gamma = replicate(length(Z)+1, 1)
+    Z = cbind.data.frame(replicate(nrow(Z),0) ,Z)
   }else{
-    gamma = array(dim = length(Z))
+    gamma = replicate(length(Z), 1)
   }
   index = unique(data[,"port"])
   time = unique(data[,"time"])
+  
+  log_likelihood = function(beta, gamma, sigmaesq){
+    t=length(time)
+    get_p_matrix = function(t){
+      p = -diag(t)
+      p = p[-nrow(p),]
+      aux = diag(t)
+      aux = aux[-1,]
+      p = p+aux
+      return(p)
+    }
+    
+    P = get_p_matrix(t)
+    y = P%*%Y
+    x = P%*%X
+    R = y - x%*%beta
+    
+    var_array = array(dim=t)
+    for (i in 1:t){
+      var_array[i]=exp(gamma0+gamma1*Z[i])
+    }
+    
+    
+    mu = replicate(t-1, 0)
+    sigma = as.matrix(P%*%(sigmaesq*diag(t) + diag(var_array))%*%t(P))
+    rownames(sigma) <- colnames(sigma)
+    gamma = -diag(var_array)%*%t(P)%*%solve(sigma)
+    nu = replicate(t, 0)
+    delta = diag(var_array)-diag(var_array)%*%t(P)%*%solve(sigma)%*%P%*%diag(var_array)
+    
+    R = dcsn(x=array(R), mu, sigma, gamma, nu, delta)
+    -sum(log(R))
+  }
+  
+  ml = mle2(log_likelihood, start = list(beta1 = 1, sigmaesq = 1, gamma0 = 1, gamma1=1),
+       method = "L-BFGS-B",
+       trace = TRUE, 
+       lower = c(beta1 = -Inf, sigmaesq = 0.001, gamma0 = -Inf, gamma1= -Inf),
+       upper = c(beta1 = Inf, sigmaesq = 10, gamma0 = Inf, gamma1= Inf))
+  return(ml)
 }
 
 
-log_likelihood = function(beta, gamma, sigmaesq){
-  t=length(time)
-  get_p_matrix = function(t){
-    p = -diag(t)
-    p = p[-nrow(p),]
-    aux = diag(t)
-    aux = aux[-1,]
-    p = p+aux
-    return(p)
-  }
-  
-  P = get_p_matrix(t)
-  y = P%*%Y
-  x = P%*%X
-  R = y - x*beta1
-  
-  var_array = array(dim=t)
-  for (i in 1:t){
-    var_array[i]=exp(gamma0+gamma1*Z[i])
-  }
-  
-  
-  mu = replicate(t-1, 0)
-  sigma = as.matrix(P%*%(sigmaesq*diag(t) + diag(var_array))%*%t(P))
-  rownames(sigma) <- colnames(sigma)
-  gamma = -diag(var_array)%*%t(P)%*%solve(sigma)
-  nu = replicate(t, 0)
-  delta = diag(var_array)-diag(var_array)%*%t(P)%*%solve(sigma)%*%P%*%diag(var_array)
-  
-  R = dcsn(x=array(R), mu, sigma, gamma, nu, delta)
-  -sum(log(R))
-}
-
-mle2(log_likelihood, start = list(beta1 = 1, sigmaesq = 1, gamma0 = 1, gamma1=1),
-     method = "L-BFGS-B",
-     trace = TRUE, 
-     lower = c(beta1 = -Inf, sigmaesq = 0.001, gamma0 = -Inf, gamma1= -Inf),
-     upper = c(beta1 = Inf, sigmaesq = 10, gamma0 = Inf, gamma1= Inf))
 
 
 
