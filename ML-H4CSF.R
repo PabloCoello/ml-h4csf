@@ -132,13 +132,14 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
       delta = diag(var_array)-diag(var_array)%*%t(P)%*%solve(sigma)%*%P%*%diag(var_array)
       
       count = count + 1
-      result[count] = dcsn(x=array(R), mu, sigma, gamma, nu, delta)
+      #result[count] = dcsn(x=array(R), mu, sigma, gamma, nu, delta)
+      result[count] = loglcsn(x=array(R), mu, sigma, gamma, nu, delta)
     }
-    print(-sum(log(result)))
-    -sum(log(result))
+    print(-sum(result))
+    -sum(result)
   }
   
-  ml = mle2(log_likelihood, start = list(beta1=1,beta2=1,beta3=1,beta4=1,beta5=1,gamma1=0.001,gamma2=0.001,gamma3=0.001,gamma4=0.001,gamma5=0.001,gamma6=0.001,sigmaesq=1),
+  ml = mle2(log_likelihood, start = list(beta1=1,beta2=1,beta3=1,beta4=1,beta5=1,gamma1=0.001,gamma2=0.001,gamma3=0.001,sigmaesq=1),
        method = "L-BFGS-B",
        trace = TRUE,
        lower = c(beta1 =-Inf, beta2=-Inf,beta3=-Inf,beta4=-Inf,beta5=-Inf, gamma1=-Inf, gamma2=-Inf,gamma3=-Inf, sigmaesq = 0.001),
