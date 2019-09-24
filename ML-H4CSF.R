@@ -17,7 +17,12 @@ xNames = c("total_meters", "tugs")
 zNames = c("averagehs", "systems_hs")
 zIntercept = TRUE
 it = c("port", "time")
-
+get_ml_estimation(yName = "total_traffic",
+                  xNames = c("total_meters", "tugs"),
+                  zNames = c("averagehs", "systems_hs"),
+                  zIntercept = TRUE,
+                  it = c("port", "time"),
+                  data = data)
 
 
 get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
@@ -25,17 +30,31 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
   X = data[,xNames]
   Z = data[,zNames]
   
-  beta = replicate(length(X), 1)
+  for (i in 1:length(X)){
+    assign(paste("beta",i,sep=""), 1)
+  }
   if (zIntercept){
-    gamma = replicate(length(Z)+1, 1)
+    for (i in 1:length(Z)+1){
+      assign(paste("gamma", i, sep=""), 1)
+    }
     Z = cbind.data.frame(replicate(nrow(Z),0) ,Z)
   }else{
-    gamma = replicate(length(Z), 1)
+    for (i in 1:length(Z)){
+      assign(paste("gamma", i, sep=""), 1)
+    }
   }
+  sigmaesq = 1
+  coefficients = mget(ls(pattern="gamma"))
+  coefficients = c(coefficients, mget(ls(pattern="beta")))
+  coefficients = c(coefficients, sigmaesq)
+  
   index = unique(data[,"port"])
   time = unique(data[,"time"])
+  dataY= cbind.data.frame(Y, data$port, data$time)
+  dataX= cbind.data.frame(X, data$port, data$time)
+  dataZ= cbind.data.frame(Z, data$port, data$time)
   
-  log_likelihood = function(beta, gamma, sigmaesq){
+  log_likelihood = function(...){
     t=length(time)
     get_p_matrix = function(t){
       p = -diag(t)
@@ -47,32 +66,39 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
     }
     
     P = get_p_matrix(t)
-    y = P%*%Y
-    x = P%*%X
-    R = y - x%*%beta
-    
-    var_array = array(dim=t)
-    for (i in 1:t){
-      var_array[i]=exp(gamma0+gamma1*Z[i])
+    result = array(dim = length(index))
+    count = 0
+    for (i in index){
+      Y = as.matrix(dataY[which(dataY$`data$port`==i),1])
+      X = as.matrix(dataX[which(dataX$`data$port`==i),1:length(beta)])
+      Z = as.matrix(dataZ[which(dataZ$`data$port`==i),1:length(gamma)])
+      y = P%*%Y
+      x = P%*%X
+      R = y - x%*%beta
+      
+      var_array = array(dim=t)
+      for (i in 1:t){
+        var_array[i]=exp(gamma%*%Z[i])
+      }
+      
+      
+      mu = replicate(t-1, 0)
+      sigma = as.matrix(P%*%(sigmaesq*diag(t) + diag(var_array))%*%t(P))
+      rownames(sigma) <- colnames(sigma)
+      gamma = -diag(var_array)%*%t(P)%*%solve(sigma)
+      nu = replicate(t, 0)
+      delta = diag(var_array)-diag(var_array)%*%t(P)%*%solve(sigma)%*%P%*%diag(var_array)
+      
+      count = count + 1
+      result[count] = dcsn(x=array(R), mu, sigma, gamma, nu, delta)
     }
-    
-    
-    mu = replicate(t-1, 0)
-    sigma = as.matrix(P%*%(sigmaesq*diag(t) + diag(var_array))%*%t(P))
-    rownames(sigma) <- colnames(sigma)
-    gamma = -diag(var_array)%*%t(P)%*%solve(sigma)
-    nu = replicate(t, 0)
-    delta = diag(var_array)-diag(var_array)%*%t(P)%*%solve(sigma)%*%P%*%diag(var_array)
-    
-    R = dcsn(x=array(R), mu, sigma, gamma, nu, delta)
-    -sum(log(R))
+
+    -sum(log(result))
   }
   
-  ml = mle2(log_likelihood, start = list(beta1 = 1, sigmaesq = 1, gamma0 = 1, gamma1=1),
+  ml = mle2(log_likelihood(coefficients), start = coefficients,
        method = "L-BFGS-B",
-       trace = TRUE, 
-       lower = c(beta1 = -Inf, sigmaesq = 0.001, gamma0 = -Inf, gamma1= -Inf),
-       upper = c(beta1 = Inf, sigmaesq = 10, gamma0 = Inf, gamma1= Inf))
+       trace = TRUE)
   return(ml)
 }
 
