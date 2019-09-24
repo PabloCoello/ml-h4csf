@@ -2,11 +2,16 @@ if(!require(csn)){install.packages("csn");library(csn)}
 if(!require(stats4)){install.packages("stats4");library(stats4)} 
 if(!require(bbmle)){install.packages("bbmle");library(bbmle)} 
 if(!require(matrixcalc)){install.packages("matrixcalc");library(matrixcalc)} 
+if(!require(xlsx)){install.packages("xlsx");library(xlsx)}
+if(!require(readxl)){install.packages("readxl");library(readxl)} 
+if(!require(EnvStats)){install.packages("EnvStats");library(EnvStats)} 
+if(!require(plm)){install.packages("plm");library(plm)} 
 
+setwd("~/GitHub/data")
+rm(list=ls())
+data <- read_excel("Puertos_data.xlsx")
+data <- pdata.frame(data,  index = "port")
 
-Y=c(2,4,3,5,6)
-X=c(1,3,6,2,5)
-Z=c(3,5,8,5,6)
 
 log_likelihood = function(beta1, sigmaesq, gamma0, gamma1){
   t=length(Y)
