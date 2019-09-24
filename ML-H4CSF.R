@@ -71,6 +71,17 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
       }
       return(beta)
     }
+    get_gamma_coefficients = function(coefficients, X, Z){
+      gamma = array(dim = length(Z))
+      for (i in length(X):length(Z)){
+        gamma[i] = coefficients[[i]]
+      }
+      return(gamma)
+    }
+    
+    beta = get_beta_array(coefficients, X)
+    gamma = get_gamma_coefficients(coefficients, X, Z)
+    sigmaesq = coefficients[[length(coefficients)]]
     
     P = get_p_matrix(t)
     result = array(dim = length(index))
