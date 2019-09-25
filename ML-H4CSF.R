@@ -153,7 +153,7 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
       result[i] = (2**t)*density*distribution[1]
     }
     print(-sum(log(result)))
-    -sum(result)
+    -sum(log(result))
   }
 
   ml = mle2(log_likelihood, start = list(beta1=1,beta2=1,beta3=1,beta4=1,
@@ -163,10 +163,10 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
        trace = TRUE,
        lower = c(beta1 =-Inf, beta2=-Inf,beta3=-Inf,beta4=-Inf,
                  gamma1=-Inf, gamma2=-Inf,gamma3=-Inf, 
-                 sigmaesq = 0.001),
+                 sigmaesq = -Inf),
        upper = c(beta1 =Inf, beta2=Inf,beta3=Inf,beta4=Inf,
                  gamma1=Inf, gamma2=Inf,gamma3=Inf, 
-                 sigmaesq = 10))
+                 sigmaesq = +Inf))
   return(ml)
 }
 
