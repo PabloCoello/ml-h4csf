@@ -7,6 +7,8 @@ if(!require(readxl)){install.packages("readxl");library(readxl)}
 if(!require(EnvStats)){install.packages("EnvStats");library(EnvStats)} 
 if(!require(plm)){install.packages("plm");library(plm)} 
 if(!require(npsf)){install.packages("npsf");library(npsf)} 
+if(!require(tmvtnorm)){install.packages("tmvtnorm");library(tmvtnorm)} 
+
 
 setwd("~/GitHub/data")
 rm(list=ls())
@@ -14,7 +16,7 @@ data <- read_excel("Puertos_data.xlsx")
 data <- pdata.frame(data,  index = "port")
 
 yName = "total_traffic"
-xNames = c("total_meters", "tugs", "total_cranes", "storages_total", "wages")
+xNames = c("total_meters", "tugs", "total_cranes", "storages_total")
 zNames = c("averagehs", "averagewind")
 zIntercept = TRUE
 it = c("port", "time")
@@ -74,8 +76,8 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
   dataX= cbind.data.frame(X_, data[,it[1]], data$time)
   dataZ= cbind.data.frame(Z_, data[,it[1]], data$time)
   
-  log_likelihood = function(beta1, beta2, beta3, beta4, beta5, gamma1, gamma2, sigmaesq){
-    print(paste(beta1, beta2, beta3, gamma1, gamma2, sigmaesq))
+  log_likelihood = function(beta1, beta2, beta3, beta4, gamma1, gamma2, gamma3, sigmaesq){
+    print(paste(beta1, beta2, beta3,gamma1, gamma2, gamma3, sigmaesq))
     t=length(time)
     get_p_matrix = function(t){
       p = -diag(t)
@@ -111,9 +113,9 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
 #    }
     
     #beta_array = get_beta_array(coefficients, nb)
-    beta_array = as.matrix(c(beta1,beta2,beta3,beta4,beta5))
+    beta_array = as.matrix(c(beta1,beta2,beta3,beta4))
     #gamma_array = get_gamma_coefficients(coefficients, nb, ng)
-    gamma_array = as.matrix(c(gamma1,gamma2))
+    gamma_array = as.matrix(c(gamma1,gamma2,gamma3))
     #sigmaesq = coefficients[[length(coefficients)]]
     
     P = get_mycoast_p_matrix(t)
@@ -130,7 +132,7 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
       
       var_array = as.matrix(array(dim=t))
       for (j in 1:t){
-        var_array[j]=exp(Z[j,]%*%gamma_array)
+        var_array[j]=exp(t(gamma_array)%*%as.matrix(Z[j,]))
       }
       
       var_ui = as.matrix(diag(array(var_array)))
@@ -138,36 +140,41 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
       
       mu = replicate(t-12, 0)
       sigma = as.matrix(P%*%(var_vi + var_ui)%*%t(P))
+      rownames(sigma)<-colnames(sigma)
       gamma = -var_ui%*%t(P)%*%solve(sigma)
       nu = replicate(t, 0)
       delta = var_ui-var_ui%*%t(P)%*%solve(sigma)%*%P%*%var_ui
       
       #result[count] = dcsn(x=array(R), mu, sigma, gamma, nu, delta)
-      result[i] = loglcsn(x=array(R), mu, sigma, gamma, nu, delta)
+      #result[i] = loglcsn(x=array(R), mu, sigma, gamma, nu, delta)
+      
+      density = dmvnorm(x=matrix(R, ncol = length(R)), mean=array(mu), sigma=sigma, log = FALSE)
+      distribution = pmvnorm(lower=rep(-Inf,t), upper = as.numeric(array(gamma%*%R)), mean = nu, sigma = delta)
+      result[i] = (2**t)*density*distribution[1]
     }
-    print(-sum(result))
+    print(-sum(log(result)))
     -sum(result)
   }
-  
-  ml = mle2(log_likelihood, start = list(beta1=1,beta2=1,beta3=1,beta4=1,beta5=1,
-                                         gamma1=0.001,gamma2=0.001,
+
+  ml = mle2(log_likelihood, start = list(beta1=1,beta2=1,beta3=1,beta4=1,
+                                         gamma1=0.001,gamma2=0.001,gamma3=0.001,
                                          sigmaesq=1),
        method = "L-BFGS-B",
        trace = TRUE,
-       lower = c(beta1 =-Inf, beta2=-Inf,beta3=-Inf,beta4=-Inf,beta5=-Inf,
-                 gamma1=-Inf, gamma2=-Inf, 
+       lower = c(beta1 =-Inf, beta2=-Inf,beta3=-Inf,beta4=-Inf,
+                 gamma1=-Inf, gamma2=-Inf,gamma3=-Inf, 
                  sigmaesq = 0.001),
-       upper = c(beta1 =Inf, beta2=Inf,beta3=Inf,beta4=Inf,beta5=Inf,
-                 gamma1=Inf, gamma2=Inf, 
+       upper = c(beta1 =Inf, beta2=Inf,beta3=Inf,beta4=Inf,
+                 gamma1=Inf, gamma2=Inf,gamma3=Inf, 
                  sigmaesq = 10))
   return(ml)
 }
 
 
 res = get_ml_estimation(yName = "total_traffic",
-                        xNames = c("total_meters", "tugs", "total_cranes", "storages_total", "wages"),
+                        xNames = c("total_meters", "tugs", "total_cranes", "storages_total"),
                         zNames = c("averagehs", "averagewind"),
-                        zIntercept = FALSE,
+                        zIntercept = TRUE,
                         it = c("port", "time"),
                         data = data)
 
