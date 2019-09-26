@@ -9,6 +9,7 @@ if(!require(plm)){install.packages("plm");library(plm)}
 if(!require(npsf)){install.packages("npsf");library(npsf)} 
 if(!require(tmvtnorm)){install.packages("tmvtnorm");library(tmvtnorm)} 
 if(!require(rlist)){install.packages("rlist");library(rlist)} 
+if(!require(dplyr)){install.packages("dplyr");library(dplyr)} 
 
 
 setwd("~/GitHub/data")
@@ -30,6 +31,17 @@ gamma2=0.001
 gamma3=0.001
 sigmaesq=1
 pmatrix="mycoast"
+
+
+
+yName = "Y1"
+xNames = c("W1", "W2", "ER", "TC")
+zNames = c("Ti", "LA")
+zIntercept = TRUE
+it = c("id", "time")
+data = banks00_07
+pmatrix = "within" 
+
 
 get_difference_p_matrix = function(t){
   p = -diag(t)
@@ -67,7 +79,7 @@ get_ll_result = function(mu, sigma, gamma, nu, delta, t, R){
 }
 
 
-get_var_array2 = function(t, gamma_array, Z){
+get_var_array = function(t, gamma_array, Z){
   var_array=exp(as.matrix(Z)%*%gamma_array)
   return(var_array)
 }
@@ -75,7 +87,7 @@ get_var_array2 = function(t, gamma_array, Z){
 get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatrix){
   Y_ = data.frame(log(data[,yName]))
   X_ = data.frame(log(data[,xNames]))
-  Z_ = data.frame(data[,zNames])
+  Z_ = data.frame(log(data[,zNames]))
   
   nb = length(X_)
   ng = length(Z_)
@@ -125,7 +137,7 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
       y = P%*%Y
       x = P%*%X
       R = y - x%*%beta_array
-
+      
       var_array = get_var_array(t, gamma_array, Z)
       
       var_ui = as.matrix(diag(array(var_array)))
@@ -135,7 +147,7 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
       sigma = as.matrix(P%*%(var_vi + var_ui)%*%t(P));rownames(sigma)<-colnames(sigma)
       gamma = -var_ui%*%t(P)%*%solve(sigma)
       nu = replicate(t, 0)
-      delta = var_ui-var_ui%*%t(P)%*%solve(sigma)%*%P%*%var_ui
+      delta = var_ui-(var_ui%*%t(P)%*%solve(sigma)%*%P%*%var_ui)
       
       result[i] = get_ll_result(mu, sigma, gamma, nu, delta, t, R)
       #result1[i] = dcsn(x=array(R), mu, sigma, gamma, nu, delta)
@@ -144,7 +156,6 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
     print(paste("m3:",-sum(log(result))))
     #print(paste("dcsn:",-sum(log(result1))))
     #print(paste("loglcsn:",-sum(result2)))
-    
     -sum(log(result))
   }
 
@@ -168,7 +179,25 @@ res = get_ml_estimation(yName = "total_traffic",
                         zIntercept = TRUE,
                         it = c("port", "time"),
                         data = data,
-                        pmatrix = "within" )#c("mycoast", "within", "difference")
+                        pmatrix = "mycoast" )#c("mycoast", "within", "difference")
 
 
+data("banks00_07")
+banks00_07<- pdata.frame(banks00_07,  index = "id")
+banks00_07$year=as.numeric(banks00_07$year)
+banks00_07 = banks00_07 %>% 
+  filter(year <= 2004)
 
+for (i in unique(banks00_07$id)){
+  if (nrow(banks00_07[which(banks00_07$id==i), ])!=5){
+    banks00_07 = banks00_07[-which(banks00_07$id==i), ]
+  }
+}
+
+res = get_ml_estimation(yName = "TA",
+                        xNames = c("W1", "W2", "Y1", "Y2"),
+                        zNames = c("Ti", "LA"),
+                        zIntercept = TRUE,
+                        it = c("id", "time"),
+                        data = banks00_07,
+                        pmatrix = "difference" )#c("mycoast", "within", "difference")
