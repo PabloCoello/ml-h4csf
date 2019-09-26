@@ -20,30 +20,51 @@ xNames = c("total_meters", "tugs", "total_cranes", "storages_total")
 zNames = c("averagehs", "averagewind")
 zIntercept = TRUE
 it = c("port", "time")
+beta1=1
+beta2=1
+beta3=1
+beta4=1
+gamma1=0.001
+gamma2=0.001
+gamma3=0.001
+sigmaesq=1
 
+get_difference_p_matrix = function(t){
+  p = -diag(t)
+  p = p[-nrow(p),]
+  aux = diag(t)
+  aux = aux[-1,]
+  p = p+aux
+  return(p)
+}
+get_mycoast_p_matrix = function(t){
+  p = -diag(t)
+  p = p[-c((nrow(p)-11):nrow(p)),]
+  aux = diag(t)
+  aux = aux[-c(1:12),]
+  p = p+aux
+  return(p)
+}
+get_within_p_matrix = function(t){
+  I = as.matrix(diag(t))
+  l = as.matrix(replicate(t, 1))
+  Q = I-1/t%*%l%*%t(l)
+}
 
+get_ll_result = function(mu, sigma, gamma, nu, delta, t, R){
+  density = dmvnorm(x=matrix(R, ncol = length(R)), mean=array(mu), sigma=sigma, log = FALSE)
+  distribution = pmvnorm(lower=rep(-Inf,t), upper = as.numeric(array(gamma%*%R)), mean = nu, sigma = delta)
+  result = (2**t)*density*distribution[1]
+  return(result)
+}
 
-#
-#data(usmanuf)
-#na = (as.character(unique(usmanuf[which(is.na(usmanuf$Y)),"naics"])))
-#for (n in na){
-#  usmanuf = usmanuf[usmanuf$naics!=n,]
-#}
-#
-#
-#usmanuf <- pdata.frame(usmanuf,  index = "naics")
-#res = get_ml_estimation(yName = "Y",
-#                  xNames = c("K", "L"),
-#                  zNames = c("M"),
-#                  zIntercept = TRUE,
-#                  it = c("naics", "time"),
-#                  data = usmanuf)
-#yName = "Y"
-#xNames = c("K", "L")
-#zNames = c("M")
-#zIntercept = TRUE
-#it = c("naics", "time")
-#data = usmanuf
+get_var_array = function(t, gamma_array, Z){
+  var_array = as.matrix(array(dim=t))
+  for (j in 1:t){
+    var_array[j]=exp(t(gamma_array)%*%as.matrix(Z[j,]))
+  }
+  return(var_array)
+}
 
 
 get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
@@ -54,113 +75,67 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
   nb = length(X_)
   ng = length(Z_)
   
-  for (i in 1:nb){
-    assign(paste("beta",i,sep=""), 1)
-  }
   if (zIntercept){
     Z_ = cbind.data.frame(replicate(nrow(Z_),1) ,Z_)
     ng = ng + 1
   }
-  for (i in 1:ng){
-     assign(paste("gamma", i, sep=""), 0.001)
-  }
-  
-  sigmaesq = 1
-  coefficients = c(mget(ls(pattern="beta")), 
-                   mget(ls(pattern="gamma")), 
-                   mget(ls(pattern="sigmaesq")))
   
   index = unique(data[,it[1]])
   time = unique(data[,"time"])
+  
   dataY= cbind.data.frame(Y_, data[,it[1]], data$time)
   dataX= cbind.data.frame(X_, data[,it[1]], data$time)
   dataZ= cbind.data.frame(Z_, data[,it[1]], data$time)
   
   log_likelihood = function(beta1, beta2, beta3, beta4, gamma1, gamma2, gamma3, sigmaesq){
     print(paste(beta1, beta2, beta3,gamma1, gamma2, gamma3, sigmaesq))
+    
     t=length(time)
-    get_p_matrix = function(t){
-      p = -diag(t)
-      p = p[-nrow(p),]
-      aux = diag(t)
-      aux = aux[-1,]
-      p = p+aux
-      return(p)
-    }
-    get_mycoast_p_matrix = function(t){
-      p = -diag(t)
-      p = p[-c((nrow(p)-11):nrow(p)),]
-      aux = diag(t)
-      aux = aux[-c(1:12),]
-      p = p+aux
-      return(p)
-    }
-#    get_beta_array = function(coefficients, nb){
-#      beta = array(dim = nb)
-#      for (i in 1:nb){
-#        beta[i] = coefficients[[i]]
-#      }
-#      return(beta)
-#    }
-#    get_gamma_coefficients = function(coefficients, nb, ng){
-#      gamma = array(dim = ng)
-#      count = 0
-#      for (i in (nb+1):(length(coefficients)-1)){
-#        count = count + 1
-#        gamma[count] = coefficients[[i]]
-#      }
-#      return(gamma)
-#    }
-    
-    #beta_array = get_beta_array(coefficients, nb)
     beta_array = as.matrix(c(beta1,beta2,beta3,beta4))
-    #gamma_array = get_gamma_coefficients(coefficients, nb, ng)
     gamma_array = as.matrix(c(gamma1,gamma2,gamma3))
-    #sigmaesq = coefficients[[length(coefficients)]]
-    
+
     P = get_mycoast_p_matrix(t)
 
     result = array(dim = length(index))
+    result1 = array(dim = length(index))
+    result2 = array(dim = length(index))
 
     for (i in 1:length(index)){
       Y = as.matrix(dataY[which(dataY$`data[, it[1]]`==index[i]),1])
       X = as.matrix(dataX[which(dataX$`data[, it[1]]`==index[i]),1:nb])
       Z = as.matrix(dataZ[which(dataZ$`data[, it[1]]`==index[i]),1:ng])
+      
       y = P%*%Y
       x = P%*%X
       R = y - x%*%beta_array
       
-      var_array = as.matrix(array(dim=t))
-      for (j in 1:t){
-        var_array[j]=exp(t(gamma_array)%*%as.matrix(Z[j,]))
-      }
+
+      var_array = get_var_array(t, gamma_array, Z)
       
       var_ui = as.matrix(diag(array(var_array)))
       var_vi = as.matrix(exp(sigmaesq)*diag(t))
       
       mu = replicate(t-12, 0)
-      sigma = as.matrix(P%*%(var_vi + var_ui)%*%t(P))
-      rownames(sigma)<-colnames(sigma)
+      sigma = as.matrix(P%*%(var_vi + var_ui)%*%t(P));rownames(sigma)<-colnames(sigma)
       gamma = -var_ui%*%t(P)%*%solve(sigma)
       nu = replicate(t, 0)
       delta = var_ui-var_ui%*%t(P)%*%solve(sigma)%*%P%*%var_ui
       
-      #result[count] = dcsn(x=array(R), mu, sigma, gamma, nu, delta)
-      #result[i] = loglcsn(x=array(R), mu, sigma, gamma, nu, delta)
-      
-      density = dmvnorm(x=matrix(R, ncol = length(R)), mean=array(mu), sigma=sigma, log = FALSE)
-      distribution = pmvnorm(lower=rep(-Inf,t), upper = as.numeric(array(gamma%*%R)), mean = nu, sigma = delta)
-      result[i] = (2**t)*density*distribution[1]
+      result[i] = get_ll_result(mu, sigma, gamma, nu, delta, t, R)
+      result1[i] = dcsn(x=array(R), mu, sigma, gamma, nu, delta)
+      result2[i] = loglcsn(x=array(R), mu, sigma, gamma, nu, delta)
     }
-    print(-sum(log(result)))
+    print(paste("m3:",-sum(log(result))))
+    print(paste("dcsn:",-sum(log(result1))))
+    print(paste("loglcsn:",-sum(result2)))
+    
     -sum(log(result))
   }
 
   ml = mle2(log_likelihood, start = list(beta1=1,beta2=1,beta3=1,beta4=1,
                                          gamma1=0.001,gamma2=0.001,gamma3=0.001,
-                                         sigmaesq=1),
+                                         sigmaesq=0.5),
        method = "L-BFGS-B",
-       trace = TRUE,
        lower = c(beta1 =-Inf, beta2=-Inf,beta3=-Inf,beta4=-Inf,
                  gamma1=-Inf, gamma2=-Inf,gamma3=-Inf, 
                  sigmaesq = -Inf),
@@ -173,7 +148,7 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
 
 res = get_ml_estimation(yName = "total_traffic",
                         xNames = c("total_meters", "tugs", "total_cranes", "storages_total"),
-                        zNames = c("averagehs", "averagewind"),
+                        zNames = c("systems_hs", "systems_wind"),
                         zIntercept = TRUE,
                         it = c("port", "time"),
                         data = data)
