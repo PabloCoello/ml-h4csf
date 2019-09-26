@@ -8,6 +8,7 @@ if(!require(EnvStats)){install.packages("EnvStats");library(EnvStats)}
 if(!require(plm)){install.packages("plm");library(plm)} 
 if(!require(npsf)){install.packages("npsf");library(npsf)} 
 if(!require(tmvtnorm)){install.packages("tmvtnorm");library(tmvtnorm)} 
+if(!require(rlist)){install.packages("rlist");library(rlist)} 
 
 
 setwd("~/GitHub/data")
@@ -28,6 +29,7 @@ gamma1=0.001
 gamma2=0.001
 gamma3=0.001
 sigmaesq=1
+pmatrix="mycoast"
 
 get_difference_p_matrix = function(t){
   p = -diag(t)
@@ -64,15 +66,8 @@ get_ll_result = function(mu, sigma, gamma, nu, delta, t, R){
   return(result)
 }
 
-#get_var_array = function(t, gamma_array, Z){
-#  var_array = as.matrix(array(dim=t))
-#  for (j in 1:t){
-#    var_array[j]=exp(t(gamma_array)%*%as.matrix(Z[j,]))
-#  }
-#  return(var_array)
-#}
 
-get_var_array = function(t, gamma_array, Z){
+get_var_array2 = function(t, gamma_array, Z){
   var_array=exp(as.matrix(Z)%*%gamma_array)
   return(var_array)
 }
@@ -98,7 +93,7 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
   dataZ= cbind.data.frame(Z_, data[,it[1]], data$time)
   
   log_likelihood = function(beta1, beta2, beta3, beta4, gamma1, gamma2, gamma3, sigmaesq){
-    print(paste(beta1, beta2, beta3,gamma1, gamma2, gamma3, sigmaesq))
+    print(paste(beta1, beta2, beta3, beta4, gamma1, gamma2, gamma3, sigmaesq))
     
     t=length(time)
     beta_array = as.matrix(c(beta1,beta2,beta3,beta4))
@@ -114,12 +109,13 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
       P = get_difference_p_matrix(t)
       tn = 1
     }else{
-      stop("not P matrix defined")
+      stop("P matrix not defined")
     }
 
     result = array(dim = length(index))
     result1 = array(dim = length(index))
     result2 = array(dim = length(index))
+
 
     for (i in 1:length(index)){
       Y = as.matrix(dataY[which(dataY$`data[, it[1]]`==index[i]),1])
@@ -129,7 +125,6 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
       y = P%*%Y
       x = P%*%X
       R = y - x%*%beta_array
-      
 
       var_array = get_var_array(t, gamma_array, Z)
       
@@ -143,12 +138,12 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
       delta = var_ui-var_ui%*%t(P)%*%solve(sigma)%*%P%*%var_ui
       
       result[i] = get_ll_result(mu, sigma, gamma, nu, delta, t, R)
-      result1[i] = dcsn(x=array(R), mu, sigma, gamma, nu, delta)
-      result2[i] = loglcsn(x=array(R), mu, sigma, gamma, nu, delta)
+      #result1[i] = dcsn(x=array(R), mu, sigma, gamma, nu, delta)
+      #result2[i] = loglcsn(x=array(R), mu, sigma, gamma, nu, delta)
     }
     print(paste("m3:",-sum(log(result))))
-    print(paste("dcsn:",-sum(log(result1))))
-    print(paste("loglcsn:",-sum(result2)))
+    #print(paste("dcsn:",-sum(log(result1))))
+    #print(paste("loglcsn:",-sum(result2)))
     
     -sum(log(result))
   }
@@ -168,8 +163,8 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
 
 
 res = get_ml_estimation(yName = "total_traffic",
-                        xNames = c("total_meters", "tugs", "total_cranes", "storages_total"),
-                        zNames = c("systems_hs", "systems_wind"),
+                        xNames = c("total_meters", "tugs", "total_cranes", "wages"),
+                        zNames = c("averagehs", "averagewind"),
                         zIntercept = TRUE,
                         it = c("port", "time"),
                         data = data,
