@@ -37,6 +37,7 @@ get_difference_p_matrix = function(t){
   p = p+aux
   return(p)
 }
+
 get_mycoast_p_matrix = function(t){
   p = -diag(t)
   p = p[-c((nrow(p)-11):nrow(p)),]
@@ -45,10 +46,15 @@ get_mycoast_p_matrix = function(t){
   p = p+aux
   return(p)
 }
+
 get_within_p_matrix = function(t){
   I = as.matrix(diag(t))
   l = as.matrix(replicate(t, 1))
-  Q = I-1/t%*%l%*%t(l)
+  Q = I-1/t*l%*%t(l)
+  R = cbind(as.matrix(replicate(t-1, 0)),
+            diag(t-1))
+  p = R%*%Q
+  return(p)
 }
 
 get_ll_result = function(mu, sigma, gamma, nu, delta, t, R){
@@ -58,16 +64,20 @@ get_ll_result = function(mu, sigma, gamma, nu, delta, t, R){
   return(result)
 }
 
+#get_var_array = function(t, gamma_array, Z){
+#  var_array = as.matrix(array(dim=t))
+#  for (j in 1:t){
+#    var_array[j]=exp(t(gamma_array)%*%as.matrix(Z[j,]))
+#  }
+#  return(var_array)
+#}
+
 get_var_array = function(t, gamma_array, Z){
-  var_array = as.matrix(array(dim=t))
-  for (j in 1:t){
-    var_array[j]=exp(t(gamma_array)%*%as.matrix(Z[j,]))
-  }
+  var_array=exp(as.matrix(Z)%*%gamma_array)
   return(var_array)
 }
 
-
-get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
+get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatrix){
   Y_ = data.frame(log(data[,yName]))
   X_ = data.frame(log(data[,xNames]))
   Z_ = data.frame(data[,zNames])
@@ -93,8 +103,19 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
     t=length(time)
     beta_array = as.matrix(c(beta1,beta2,beta3,beta4))
     gamma_array = as.matrix(c(gamma1,gamma2,gamma3))
-
-    P = get_mycoast_p_matrix(t)
+    
+    if (pmatrix=="mycoast"){
+      P = get_mycoast_p_matrix(t)
+      tn = 12
+    }else if(pmatrix=="within"){
+      P = get_within_p_matrix(t)
+      tn = 1
+    }else if(pmatrix=="difference"){
+      P = get_difference_p_matrix(t)
+      tn = 1
+    }else{
+      stop("not P matrix defined")
+    }
 
     result = array(dim = length(index))
     result1 = array(dim = length(index))
@@ -115,7 +136,7 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it){
       var_ui = as.matrix(diag(array(var_array)))
       var_vi = as.matrix(exp(sigmaesq)*diag(t))
       
-      mu = replicate(t-12, 0)
+      mu = replicate(t-tn, 0)
       sigma = as.matrix(P%*%(var_vi + var_ui)%*%t(P));rownames(sigma)<-colnames(sigma)
       gamma = -var_ui%*%t(P)%*%solve(sigma)
       nu = replicate(t, 0)
@@ -151,7 +172,8 @@ res = get_ml_estimation(yName = "total_traffic",
                         zNames = c("systems_hs", "systems_wind"),
                         zIntercept = TRUE,
                         it = c("port", "time"),
-                        data = data)
+                        data = data,
+                        pmatrix = "within" )#c("mycoast", "within", "difference")
 
 
 
