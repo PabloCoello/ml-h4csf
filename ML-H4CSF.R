@@ -17,31 +17,6 @@ rm(list=ls())
 data <- read_excel("Puertos_data.xlsx")
 data <- pdata.frame(data,  index = "port")
 
-yName = "total_traffic"
-xNames = c("total_meters", "tugs", "total_cranes", "storages_total")
-zNames = c("averagehs", "averagewind")
-zIntercept = TRUE
-it = c("port", "time")
-beta1=1
-beta2=1
-beta3=1
-beta4=1
-gamma1=0.001
-gamma2=0.001
-gamma3=0.001
-sigmaesq=1
-pmatrix="mycoast"
-
-
-
-yName = "Y1"
-xNames = c("W1", "W2", "ER", "TC")
-zNames = c("Ti", "LA")
-zIntercept = TRUE
-it = c("id", "time")
-data = banks00_07
-pmatrix = "within" 
-
 
 get_difference_p_matrix = function(t){
   p = -diag(t)
@@ -78,7 +53,6 @@ get_ll_result = function(mu, sigma, gamma, nu, delta, t, R){
   return(result)
 }
 
-
 get_var_array = function(t, gamma_array, Z){
   var_array=exp(as.matrix(Z)%*%gamma_array)
   return(var_array)
@@ -87,7 +61,7 @@ get_var_array = function(t, gamma_array, Z){
 get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatrix){
   Y_ = data.frame(log(data[,yName]))
   X_ = data.frame(log(data[,xNames]))
-  Z_ = data.frame(log(data[,zNames]))
+  Z_ = data.frame(data[,zNames])
   
   nb = length(X_)
   ng = length(Z_)
@@ -108,7 +82,7 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
     print(paste(beta1, beta2, beta3, beta4, gamma1, gamma2, gamma3, sigmaesq))
     
     t=length(time)
-    beta_array = as.matrix(c(beta1,beta2,beta3,beta4))
+    beta_array = as.matrix(c(beta1,beta2, beta3, beta4))
     gamma_array = as.matrix(c(gamma1,gamma2,gamma3))
     
     if (pmatrix=="mycoast"){
@@ -123,12 +97,12 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
     }else{
       stop("P matrix not defined")
     }
-
+    
     result = array(dim = length(index))
     result1 = array(dim = length(index))
     result2 = array(dim = length(index))
-
-
+    
+    time <- proc.time()
     for (i in 1:length(index)){
       Y = as.matrix(dataY[which(dataY$`data[, it[1]]`==index[i]),1])
       X = as.matrix(dataX[which(dataX$`data[, it[1]]`==index[i]),1:nb])
@@ -136,41 +110,41 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
       
       y = P%*%Y
       x = P%*%X
-      R = y - x%*%beta_array
+      
+      R = y - (x%*%beta_array)
       
       var_array = get_var_array(t, gamma_array, Z)
       
       var_ui = as.matrix(diag(array(var_array)))
-      var_vi = as.matrix(exp(sigmaesq)*diag(t))
+      var_vi = as.matrix(sigmaesq*diag(t))
       
       mu = replicate(t-tn, 0)
       sigma = as.matrix(P%*%(var_vi + var_ui)%*%t(P));rownames(sigma)<-colnames(sigma)
-      gamma = -var_ui%*%t(P)%*%solve(sigma)
+      gamma = -(var_ui%*%t(P)%*%solve(sigma))
       nu = replicate(t, 0)
-      delta = var_ui-(var_ui%*%t(P)%*%solve(sigma)%*%P%*%var_ui)
+      delta = var_ui-(var_ui%*%t(P)%*%solve(sigma))%*%(P%*%var_ui)
       
       result[i] = get_ll_result(mu, sigma, gamma, nu, delta, t, R)
-      #result1[i] = dcsn(x=array(R), mu, sigma, gamma, nu, delta)
+      #result[i] = dcsn(x=array(R), mu, sigma, gamma, nu, delta)
       #result2[i] = loglcsn(x=array(R), mu, sigma, gamma, nu, delta)
     }
     print(paste("m3:",-sum(log(result))))
-    #print(paste("dcsn:",-sum(log(result1))))
-    #print(paste("loglcsn:",-sum(result2)))
-    -sum(log(result))
+    print(proc.time()-time)
+    -sum(log(result[1]))
   }
-
-  ml = mle2(log_likelihood, start = list(beta1=1,beta2=1,beta3=1,beta4=1,
+  ols = lm(dataY[,1] ~ dataX[,1]+dataX[,2]+dataX[,3]+dataX[,4])
+  ml = mle2(log_likelihood, start = list(beta1 = as.numeric(ols$coefficients[2]),
+                                         beta2 = as.numeric(ols$coefficients[3]),
+                                         beta3 = as.numeric(ols$coefficients[4]),
+                                         beta4 = as.numeric(ols$coefficients[5]),
                                          gamma1=0.001,gamma2=0.001,gamma3=0.001,
                                          sigmaesq=0.5),
-       method = "L-BFGS-B",
-       lower = c(beta1 =-Inf, beta2=-Inf,beta3=-Inf,beta4=-Inf,
-                 gamma1=-Inf, gamma2=-Inf,gamma3=-Inf, 
-                 sigmaesq = -Inf),
-       upper = c(beta1 =Inf, beta2=Inf,beta3=Inf,beta4=Inf,
-                 gamma1=Inf, gamma2=Inf,gamma3=Inf, 
-                 sigmaesq = +Inf))
+            method = "Nelder-Mead")
   return(ml)
 }
+
+
+as.numeric(ols$coefficients[2])
 
 
 res = get_ml_estimation(yName = "total_traffic",
@@ -181,23 +155,3 @@ res = get_ml_estimation(yName = "total_traffic",
                         data = data,
                         pmatrix = "mycoast" )#c("mycoast", "within", "difference")
 
-
-data("banks00_07")
-banks00_07<- pdata.frame(banks00_07,  index = "id")
-banks00_07$year=as.numeric(banks00_07$year)
-banks00_07 = banks00_07 %>% 
-  filter(year <= 2004)
-
-for (i in unique(banks00_07$id)){
-  if (nrow(banks00_07[which(banks00_07$id==i), ])!=5){
-    banks00_07 = banks00_07[-which(banks00_07$id==i), ]
-  }
-}
-
-res = get_ml_estimation(yName = "TA",
-                        xNames = c("W1", "W2", "Y1", "Y2"),
-                        zNames = c("Ti", "LA"),
-                        zIntercept = TRUE,
-                        it = c("id", "time"),
-                        data = banks00_07,
-                        pmatrix = "difference" )#c("mycoast", "within", "difference")
