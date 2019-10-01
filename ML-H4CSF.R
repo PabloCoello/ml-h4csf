@@ -128,7 +128,12 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
       #result[i] = dcsn(x=array(R), mu, sigma, gamma, nu, delta)
       #result2[i] = loglcsn(x=array(R), mu, sigma, gamma, nu, delta)
     }
-    print(paste("m3:",-sum(log(result))))
+    for (i in 1:length(result)){
+      if (result[i] == 0){
+        result[i]=1e-200
+      }
+    }
+    print(paste("m3:|||||",-sum(log(result)),"|||||"))
     print(proc.time()-time)
     -sum(log(result[1]))
   }
@@ -138,14 +143,16 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
                                          beta3 = as.numeric(ols$coefficients[4]),
                                          beta4 = as.numeric(ols$coefficients[5]),
                                          gamma1=0.001,gamma2=0.001,gamma3=0.001,
-                                         sigmaesq=0.5),
-            method = "Nelder-Mead")
+                                         sigmaesq=0.001),
+            method = "L-BFGS-B",
+            lower = c(beta1 =-Inf, beta2=-Inf,beta3 =-Inf, beta4=-Inf,
+                      gamma1=-Inf, gamma2=-Inf,gamma3=-Inf,
+                      sigmaesq = 0.0001),
+            upper = c(beta1 =Inf, beta2=Inf,beta3 =Inf, beta4=Inf,
+                      gamma1=Inf, gamma2=Inf,gamma3=Inf,
+                      sigmaesq = 10))
   return(ml)
 }
-
-
-as.numeric(ols$coefficients[2])
-
 
 res = get_ml_estimation(yName = "total_traffic",
                         xNames = c("total_meters", "tugs", "total_cranes", "wages"),
