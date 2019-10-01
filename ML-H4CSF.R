@@ -78,11 +78,13 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
   dataX= cbind.data.frame(X_, data[,it[1]], data$time)
   dataZ= cbind.data.frame(Z_, data[,it[1]], data$time)
   
-  log_likelihood = function(beta1, beta2, beta3, beta4, gamma1, gamma2, gamma3, sigmaesq){
-    print(paste(beta1, beta2, beta3, beta4, gamma1, gamma2, gamma3, sigmaesq))
+  log_likelihood = function(beta1, beta2, beta3, beta4, beta5,gamma1, gamma2, gamma3, sigmaesq){
+    print(writeLines(c(paste("beta:",beta1, beta2, beta3, beta4, beta5),
+                       paste("gamma:", gamma1, gamma2, gamma3),
+                       paste("var:", sigmaesq))))
     
     t=length(time)
-    beta_array = as.matrix(c(beta1,beta2, beta3, beta4))
+    beta_array = as.matrix(c(beta1,beta2, beta3, beta4,beta5))
     gamma_array = as.matrix(c(gamma1,gamma2,gamma3))
     
     if (pmatrix=="mycoast"){
@@ -101,7 +103,7 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
     result = array(dim = length(index))
     result1 = array(dim = length(index))
     result2 = array(dim = length(index))
-    
+    j=0
     time <- proc.time()
     for (i in 1:length(index)){
       Y = as.matrix(dataY[which(dataY$`data[, it[1]]`==index[i]),1])
@@ -133,29 +135,34 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
         result[i]=1e-200
       }
     }
-    print(paste("m3:|||||",-sum(log(result)),"|||||"))
+    j=j+1
     print(proc.time()-time)
+    print(paste("m3:|||||",-sum(log(result)),"|||||"))
+    print(paste("number of iterations:",(j)))
+    print("MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM")
+    
     -sum(log(result[1]))
   }
-  ols = lm(dataY[,1] ~ dataX[,1]+dataX[,2]+dataX[,3]+dataX[,4])
+  ols = lm(dataY[,1] ~ dataX[,1]+dataX[,2]+dataX[,3]+dataX[,4]+dataX[,5])
   ml = mle2(log_likelihood, start = list(beta1 = as.numeric(ols$coefficients[2]),
                                          beta2 = as.numeric(ols$coefficients[3]),
                                          beta3 = as.numeric(ols$coefficients[4]),
                                          beta4 = as.numeric(ols$coefficients[5]),
-                                         gamma1=0.001,gamma2=0.001,gamma3=0.001,
-                                         sigmaesq=0.001),
+                                         beta5 = as.numeric(ols$coefficients[6]),
+                                         gamma1=0.5,gamma2=0.5,gamma3=0.5,
+                                         sigmaesq=0.0217331999366858),
             method = "L-BFGS-B",
-            lower = c(beta1 =-Inf, beta2=-Inf,beta3 =-Inf, beta4=-Inf,
+            lower = c(beta1 =-Inf, beta2=-Inf,beta3 =-Inf, beta4=-Inf,beta5=-Inf,
                       gamma1=-Inf, gamma2=-Inf,gamma3=-Inf,
                       sigmaesq = 0.0001),
-            upper = c(beta1 =Inf, beta2=Inf,beta3 =Inf, beta4=Inf,
+            upper = c(beta1 =Inf, beta2=Inf,beta3 =Inf, beta4=Inf,beta5=Inf,
                       gamma1=Inf, gamma2=Inf,gamma3=Inf,
                       sigmaesq = 10))
   return(ml)
 }
 
 res = get_ml_estimation(yName = "total_traffic",
-                        xNames = c("total_meters", "tugs", "total_cranes", "wages"),
+                        xNames = c("total_meters", "tugs", "total_cranes", "wages", "storages_total"),
                         zNames = c("averagehs", "averagewind"),
                         zIntercept = TRUE,
                         it = c("port", "time"),
