@@ -141,7 +141,7 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
     print(paste("number of iterations:",(j)))
     print("MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM")
     
-    -sum(log(result[1]))
+    -sum(log(result))
   }
   ols = lm(dataY[,1] ~ dataX[,1]+dataX[,2]+dataX[,3]+dataX[,4]+dataX[,5])
   ml = mle2(log_likelihood, start = list(beta1 = as.numeric(ols$coefficients[2]),
@@ -158,6 +158,16 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
             upper = c(beta1 =Inf, beta2=Inf,beta3 =Inf, beta4=Inf,beta5=Inf,
                       gamma1=Inf, gamma2=Inf,gamma3=Inf,
                       sigmaesq = 10))
+  
+  #opt = optim(par = c(beta1 = as.numeric(ols$coefficients[2]),
+  #                    beta2 = as.numeric(ols$coefficients[3]),
+  #                    beta3 = as.numeric(ols$coefficients[4]),
+  #                    beta4 = as.numeric(ols$coefficients[5]),
+  #                    beta5 = as.numeric(ols$coefficients[6]),
+  #                    gamma1=0.5,gamma2=0.5,gamma3=0.5,
+  #                    sigmaesq=0.0217331999366858),
+  #            fn = log_likelihood,
+  #            method = "L-BFGS-B" )
   return(ml)
 }
 
