@@ -102,8 +102,6 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
     }
     
     result = array(dim = length(index))
-    result1 = array(dim = length(index))
-    result2 = array(dim = length(index))
     j=0
     time <- proc.time()
     for (i in 1:length(index)){
@@ -163,7 +161,59 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
   return(ml)
 }
 
-res = get_ml_estimation(yName = "total_traffic",
+
+get_nls_estimation = function(yName, xNames, dNames, dIntercept, data, it, coef){
+  Y_ = data.frame(log(data[,yName]))
+  X_ = data.frame(log(data[,xNames]))
+  D_ = data.frame(data[,dNames])
+  
+  nb = length(X_)
+  ng = length(D_)
+  
+  if (dIntercept){
+    D_ = cbind.data.frame(replicate(nrow(D_),1) ,D_)
+    ng = ng + 1
+  }
+  
+  index = unique(data[,it[1]])
+  time = unique(data[,"time"])
+  
+  dataY= cbind.data.frame(Y_, data[,it[1]], data$time)
+  dataX= cbind.data.frame(X_, data[,it[1]], data$time)
+  dataD= cbind.data.frame(D_, data[,it[1]], data$time)
+
+log_likelihood_nls = function (beta0, sigma_tau, delta1, delta2, delta3){
+  print(writeLines(c(paste("intercept:",beta0),
+                     paste("delta:", delta1, delta2, delta3),
+                     paste("var:", sigma_tau))))
+  
+  t=length(time)
+  dmu = length(index)
+  delta_array = as.matrix(c(delta1, delta2, delta3))
+  result = array(dim = length(index)*length(time))
+  for (i in 1:lenth(index)){
+    for (n in 1:length(time)){
+      var_nui = exp(W %*% delta_array)
+      var_uit = Z %*% gamma_array
+      
+      r_it =
+      r2_it = r_it**2
+      rr_itis = r_it*r_is
+      
+      er_it = beta0 -sqrt(2/pi)*(sqrt(var_nui)+ sqrt(var_uit))
+      er2_it = var_tau + var_nu + var_v + var_u + (beta0 - sqrt(2/pi)*(sqrt(var_nu)+ sqrt(var_u))**2)
+      err_itis
+      
+      omega = as.matrix(diag(c(1,1,1)))
+      fi = as.matrix(c(r_it - er_it, r2_it-er2_it, rr_itis-err_itis))
+      result[(i*length(t))+n] = fi %*% solve(omega) %*% t(fi)
+    }
+  }
+  sum(log(result))
+}
+}
+
+res_ml = get_ml_estimation(yName = "total_traffic",
                         xNames = c("total_meters", "tugs", "total_cranes", "wages", "storages_total"),
                         zNames = c("averagehs", "averagewind"),
                         zIntercept = TRUE,
@@ -172,30 +222,16 @@ res = get_ml_estimation(yName = "total_traffic",
                         pmatrix = "within" )#c("mycoast", "within", "difference")
 
 
-
-install.packages("drat")
-drat::addRepo("JanMarvin")
-install.packages("readspss")
-
-library(readspss)
-
-log_likelihood_nls = function ()
-var_nui = exp(W %*% delta_array)
-var_uit = Z %*% gamma_array
-
-er_it = beta0 -sqrt(2/pi)*(sqrt(var_nui)+ sqrt(var_uit))
+fs_coef=res@coef
+res_nls = get_nls_estimation(yName = "total_traffic",
+                        xNames = c("total_meters", "tugs", "total_cranes", "wages", "storages_total"),
+                        dNames = c("averagehs", "averagewind"),
+                        dIntercept = TRUE,
+                        it = c("port", "time"),
+                        data = data,
+                        coef = fs_coef)
 
 
-er2_it = var_tau + var_nu + var_v + var_u + (beta0 - sqrt(2/pi)*(sqrt(var_nu)+ sqrt(var_u))**2)
-err_itis
 
 
-model = list(
-  er = beta0 -sqrt(2/pi)*(sqrt(var_nui)+ sqrt(var_uit))
-  er2 = var_tau + var_nu + var_v + var_u + (beta0 - sqrt(2/pi)*(sqrt(var_nu)+ sqrt(var_u))**2)
-  err
-)
-
-nlsur(eqns=model, data=, type="FGNLS")
-exp(10)
 
