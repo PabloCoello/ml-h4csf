@@ -10,6 +10,7 @@ if(!require(npsf)){install.packages("npsf");library(npsf)}
 if(!require(tmvtnorm)){install.packages("tmvtnorm");library(tmvtnorm)} 
 if(!require(rlist)){install.packages("rlist");library(rlist)} 
 if(!require(dplyr)){install.packages("dplyr");library(dplyr)} 
+library(readspss)
 
 
 setwd("~/GitHub/data")
@@ -159,15 +160,6 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
                       gamma1=Inf, gamma2=Inf,gamma3=Inf,
                       sigmaesq = 10))
   
-  #opt = optim(par = c(beta1 = as.numeric(ols$coefficients[2]),
-  #                    beta2 = as.numeric(ols$coefficients[3]),
-  #                    beta3 = as.numeric(ols$coefficients[4]),
-  #                    beta4 = as.numeric(ols$coefficients[5]),
-  #                    beta5 = as.numeric(ols$coefficients[6]),
-  #                    gamma1=0.5,gamma2=0.5,gamma3=0.5,
-  #                    sigmaesq=0.0217331999366858),
-  #            fn = log_likelihood,
-  #            method = "L-BFGS-B" )
   return(ml)
 }
 
@@ -177,5 +169,33 @@ res = get_ml_estimation(yName = "total_traffic",
                         zIntercept = TRUE,
                         it = c("port", "time"),
                         data = data,
-                        pmatrix = "mycoast" )#c("mycoast", "within", "difference")
+                        pmatrix = "within" )#c("mycoast", "within", "difference")
+
+
+
+install.packages("drat")
+drat::addRepo("JanMarvin")
+install.packages("readspss")
+
+library(readspss)
+
+log_likelihood_nls = function ()
+var_nui = exp(W %*% delta_array)
+var_uit = Z %*% gamma_array
+
+er_it = beta0 -sqrt(2/pi)*(sqrt(var_nui)+ sqrt(var_uit))
+
+
+er2_it = var_tau + var_nu + var_v + var_u + (beta0 - sqrt(2/pi)*(sqrt(var_nu)+ sqrt(var_u))**2)
+err_itis
+
+
+model = list(
+  er = beta0 -sqrt(2/pi)*(sqrt(var_nui)+ sqrt(var_uit))
+  er2 = var_tau + var_nu + var_v + var_u + (beta0 - sqrt(2/pi)*(sqrt(var_nu)+ sqrt(var_u))**2)
+  err
+)
+
+nlsur(eqns=model, data=, type="FGNLS")
+exp(10)
 
