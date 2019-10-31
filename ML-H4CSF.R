@@ -142,7 +142,7 @@ get_ml_estimation = function(yName, xNames, zNames, zIntercept, data, it, pmatri
     
     -sum(log(result))
   }
-  ols = lm(dataY[,1] ~ dataX[,1]+dataX[,2]+dataX[,3]+dataX[,4]+dataX[,5])
+  ols = plm(dataY[,1] ~ dataX[,1]+dataX[,2]+dataX[,3]+dataX[,4]+dataX[,5], index = it, data=data)
   ml = mle2(log_likelihood, start = list(beta1 = as.numeric(ols$coefficients[2]),
                                          beta2 = as.numeric(ols$coefficients[3]),
                                          beta3 = as.numeric(ols$coefficients[4]),
@@ -189,14 +189,21 @@ log_likelihood_nls = function (beta0, sigma_tau, delta1, delta2, delta3){
   
   t=length(time)
   dmu = length(index)
+  
+  beta_array = coef[1:nb]
   delta_array = as.matrix(c(delta1, delta2, delta3))
   result = array(dim = length(index)*length(time))
+  
   for (i in 1:lenth(index)){
+    Y = as.matrix(dataY[which(dataY$`data[, it[1]]`==index[i]),1])
+    X = as.matrix(dataX[which(dataX$`data[, it[1]]`==index[i]),1:nb])
+    D = as.matrix(dataD[which(dataD$`data[, it[1]]`==index[i]),1:ng])
     for (n in 1:length(time)){
-      var_nui = exp(W %*% delta_array)
+      
+      var_nui = exp(D %*% delta_array)
       var_uit = Z %*% gamma_array
       
-      r_it =
+      r_it = 
       r2_it = r_it**2
       rr_itis = r_it*r_is
       
